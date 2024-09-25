@@ -13,6 +13,44 @@ import random
 import requests
 import os  # Used to check if the file exists
 
+# Opponent base class
+class Opponent:
+    def __init__(self, name, health, attack_strength):
+        self.name = name
+        self.health = health
+        self.attack_strength = attack_strength
+
+    def attack(self):
+        """General attack logic for opponents."""
+        return random.randint(1, self.attack_strength)
+
+# WeakOpponent class inheriting from Opponent
+class WeakOpponent(Opponent):
+    def __init__(self, name, health, attack_strength):
+        super().__init__(name, health, attack_strength)
+
+    def attack(self):
+        """Overriding attack for weak opponents."""
+        print(f"{self.name} attacks weakly!")
+        return random.randint(1, self.attack_strength // 2)  # Weak attack is halved
+
+# FinalBoss class inheriting from Opponent
+class FinalBoss(Opponent):
+    def __init__(self, name, health, attack_strength, special_power):
+        super().__init__(name, health, attack_strength)
+        self.special_power = special_power  # New attribute for FinalBoss
+
+    def attack(self):
+        """Overriding attack for final bosses with special power."""
+        if random.random() > 0.7:  # 30% chance of using special power
+            print(f"{self.name} uses {self.special_power}!")
+            return random.randint(self.attack_strength, self.attack_strength * 2)
+        else:
+            print(f"{self.name} attacks normally.")
+            return super().attack()
+
+# Additional methods for game logic
+
 def save_game(player_name, inventory, doors_chosen, current_language, translation_history):
     """Saves the current game state to a file."""
     with open('game_save.txt', 'w') as file:
@@ -96,13 +134,17 @@ def choose_door(doors_chosen, inventory):
     return doors_chosen, inventory
 
 def combat(choice, inventory):
-    """Handles combat encounters with enemies based on player's choices and items."""
+    """Handles combat encounters using the new Opponent system."""
     if choice == "dragon":
-        print(f'{"You enter a room with a fierce dragon!":^30}')
+        dragon = FinalBoss("Dragon", health=100, attack_strength=20, special_power="Fire Breath")
+        print(f'{"You encounter a fearsome dragon!":^30}')
         if input(f'{"Do you want to fight the dragon? (yes/no): ":^30}').lower() == "yes":
             if "sword" in inventory:
                 print(f'{"Rolling the dice to see the outcome...":^30}')
-                if random.randint(1, 6) > 3:
+                player_attack = random.randint(1, 10)  # Simulating player's attack
+                dragon_attack = dragon.attack()
+
+                if player_attack >= dragon_attack:
                     print(f'{"You defeated the dragon with your sword!":^30}')
                 else:
                     if "shield" in inventory:
@@ -114,12 +156,17 @@ def combat(choice, inventory):
             else:
                 print(f'{"You were eaten by the dragon because you had no sword!":^30}')
                 inventory.clear()
+
     elif choice == "goblin":
-        print(f'{"You enter a room with a sneaky goblin!":^30}')
+        goblin = WeakOpponent("Goblin", health=50, attack_strength=5)
+        print(f'{"You encounter a sneaky goblin!":^30}')
         if input(f'{"Do you want to fight the goblin? (yes/no): ":^30}').lower() == "yes":
             if "sword" in inventory:
                 print(f'{"Rolling the dice to see the outcome...":^30}')
-                if random.randint(1, 6) > 2:
+                player_attack = random.randint(1, 10)  # Simulating player's attack
+                goblin_attack = goblin.attack()
+
+                if player_attack >= goblin_attack:
                     print(f'{"You defeated the goblin with your sword!":^30}')
                 else:
                     if "shield" in inventory:
@@ -141,40 +188,16 @@ def play_game():
     player_name, inventory, doors_chosen, current_language, translation_history = load_game()
 
     if not player_name:
-        player_name = input(f"{'Enter Your Name: ':^30}")
-        
-        if 2 <= len(player_name) <= 40:
-            # Use the length of the player's name to generate a random in-game name
-            in_game_name = get_random_name(len(player_name), len(player_name))
-            print(f"{'Your in-game name is: ' + in_game_name:^30}")
-        else:
-            print(f"{'Your name must be between 2 and 40 characters.':^30}")
-            return
-    
-    language_switch = input(f"Do you want to switch to another language? (yes/no): ").lower()
-    
-    if language_switch == "yes":
-        new_language = input(f"Enter the language code you'd like to switch to (e.g., 'fr' for French): ").lower()
-        translated_welcome = translate_text("Welcome to the land of adventure!", current_language, new_language)
-        print(f'{translated_welcome:^30}')
-        current_language = new_language
-        translation_history['to'] = current_language
+        player_name = input("Enter your name: ")
 
-    while not all(doors_chosen.values()):
-        doors_chosen, inventory = choose_door(doors_chosen, inventory)
+    print(f'{"Welcome to the Adventure Game, " + player_name + "!":^30}')
     
-    print(f'{"You now see two more doors: one leads to a dragon, and the other to a goblin.":^30}')
-    next_choice = input(f'{"Which door will you choose? (dragon/goblin): ":^30}').lower()
-    inventory = combat(next_choice, inventory)
-    
-    if "sword" in inventory:
-        print(f"Congratulations, {player_name}! You finished the game with a sword!")
-    if "shield" in inventory:
-        print(f"Congratulations, {player_name}! You finished the game with a shield!")
-    if not inventory:
-        print(f"Thank you for playing, {player_name}, but you lost all your items!")
+    # Let player choose a door
+    doors_chosen, inventory = choose_door(doors_chosen, inventory)
 
-    save_game(player_name, inventory, doors_chosen, current_language, translation_history)
+    # Encounter either a goblin or a dragon randomly
+    encounter = random.choice(["goblin", "dragon"])
+    inventory = combat(encounter, inventory)
 
-# Start the game
-play_game()
+if __name__ == "__main__":
+    play_game()
