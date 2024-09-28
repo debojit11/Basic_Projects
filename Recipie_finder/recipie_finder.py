@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+from requests.exceptions import HTTPError, Timeout, RequestException
 
 # Ingredient class to manage user input and check recipes
 class Ingredient:
@@ -18,19 +19,41 @@ class Soup:
     def __init__(self, base_url):
         self.base_url = base_url
 
-    # Method to fetch the HTML links from the base URL
+    # Method to fetch the HTML links from the base URL with exception handling
     def fetch_links(self):
-        response = requests.get(self.base_url)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        links = soup.find_all('a')
-        return links
+        try:
+            response = requests.get(self.base_url, timeout=10)  # Adding a timeout of 10 seconds
+            response.raise_for_status()  # Raises HTTPError if status code is 4xx/5xx
+            soup = BeautifulSoup(response.content, 'html.parser')
+            links = soup.find_all('a')
+            return links
+        except HTTPError as http_err:
+            print(f"HTTP error occurred: {http_err}")
+        except Timeout:
+            print("Request timed out.")
+        except RequestException as req_err:
+            print(f"Error occurred while making request: {req_err}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+        return []  # Return an empty list if an error occurred
 
-    # Method to fetch the content of each recipe page
+    # Method to fetch the content of each recipe page with exception handling
     def fetch_recipe_content(self, link):
         full_url = self.base_url + link.get('href')
-        recipe_response = requests.get(full_url)
-        recipe_soup = BeautifulSoup(recipe_response.content, 'html.parser')
-        return full_url, recipe_soup.get_text(separator='\n').strip()
+        try:
+            recipe_response = requests.get(full_url, timeout=30)  # Adding a timeout of 30 seconds
+            recipe_response.raise_for_status()  # Raises HTTPError if status code is 4xx/5xx
+            recipe_soup = BeautifulSoup(recipe_response.content, 'html.parser')
+            return full_url, recipe_soup.get_text(separator='\n').strip()
+        except HTTPError as http_err:
+            print(f"HTTP error occurred while fetching recipe from {full_url}: {http_err}")
+        except Timeout:
+            print(f"Request to {full_url} timed out.")
+        except RequestException as req_err:
+            print(f"Error occurred while making request to {full_url}: {req_err}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+        return full_url, ""  # Return empty content in case of error
 
 # Main program
 def main():
@@ -55,10 +78,10 @@ def main():
             recipe_url, recipe_content = soup_scraper.fetch_recipe_content(link)
 
             # Check if the recipe contains the user's ingredients
-            if ingredient_checker.check_in_recipe(recipe_content):
+            if recipe_content and ingredient_checker.check_in_recipe(recipe_content):
                 print(f"\nRecipe found at: {recipe_url}")
                 print(recipe_content)
-                print("="*292)
+                print("=" * 292)
 
 if __name__ == "__main__":
     main()
